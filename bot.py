@@ -4,9 +4,9 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 from google import genai
 
-# --- YOUR API KEYS ---
-GEMINI_API_KEY = "AQ.Ab8RN6J7q-RlRClKhMsjTZ33fzjaiaWo3cSGfT9-utwjLUhvbQ"
-TELEGRAM_BOT_TOKEN = "9239146906:AAGEArnsuvV4b7n559p_xp3xK75JELJFyj8"
+# --- API KEYS (Render ရဲ့ Environment Variables မှ အလိုအလျောက် ယူပါမည်) ---
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -61,7 +61,7 @@ async def translate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lang = context.args[0]
         text = " ".join(context.args[1:])
         response = client.models.generate_content(
-            model='gemini-3.8-flash', 
+            model='gemini-2.5-flash',
             contents=f"Translate into {lang}: {text}"
         )
         await update.message.reply_text(f"🌐 **Translation ({lang}):**\n{response.text}", parse_mode="Markdown")
@@ -74,7 +74,7 @@ async def ged_assistant_command(update: Update, context: ContextTypes.DEFAULT_TY
         question = " ".join(context.args[1:])
         prompt = f"You are an expert GED tutor specializing in {subject}. Explain this clearly with step-by-step guidance for the user: {question}"
         response = client.models.generate_content(
-            model='gemini-3.8-flash', 
+            model='gemini-2.5-flash',
             contents=prompt
         )
         await update.message.reply_text(f"📚 **GED Tutor ({subject}):**\n{response.text}", parse_mode="Markdown")
@@ -85,7 +85,6 @@ async def ged_assistant_command(update: Update, context: ContextTypes.DEFAULT_TY
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_message = update.message.text
-    
     save_chat(user_id, "User", user_message)
 
     if "မှတ်ထား" in user_message or "save note" in user_message.lower():
@@ -94,7 +93,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_memories = get_memories(user_id)
-    
     system_instruction = f"""
     You are JINX, a sleek, highly efficient, and witty personal AI assistant running on mobile.
     User's saved long-term notes & memories: {user_memories}
@@ -103,7 +101,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model='gemini-2.5-flash',
             contents=f"{system_instruction}\n\nUser: {user_message}",
         )
         reply_text = response.text
@@ -124,7 +122,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         sample_file = client.files.upload(file=photo_path)
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
+            model='gemini-2.5-flash',
             contents=[sample_file, caption]
         )
         await update.message.reply_text(f"🖼 **Image Analysis:**\n{response.text}", parse_mode="Markdown")
@@ -136,12 +134,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-    
+
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("tr", translate_command))
     app.add_handler(CommandHandler("ged", ged_assistant_command))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    
+
     print("JINX Mobile Edition is active, Sir...")
     app.run_polling()
